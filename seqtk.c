@@ -31,7 +31,14 @@
 #include <inttypes.h>
 #include <zlib.h>
 #include <string.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <io.h>       // for _isatty, _fileno
+    #include <fcntl.h>
+    #define isatty  _isatty
+    #define fileno  _fileno
+#else
+    #include <unistd.h>   // for getopt, isatty, fileno
+#endif
 #include <limits.h>
 #include <assert.h>
 #include <math.h>

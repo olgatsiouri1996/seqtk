@@ -1,14 +1,27 @@
-CC=gcc
-CFLAGS=-g -Wall -O2 -Wno-unused-function -Wno-format
-BINDIR=/usr/local/bin
+CC      = gcc
+CFLAGS  = -g -Wall -O2 -Wno-unused-function -Wno-format
+LDFLAGS = -lz -lm
 
-all:seqtk
+# Detect OS (Windows_NT is set in MSYS/MinGW environments)
+ifeq ($(OS),Windows_NT)
+    EXE     = seqtk.exe
+    BINDIR  = $(CURDIR)   # install into current directory on Windows
+else
+    EXE     = seqtk
+    BINDIR  = /usr/local/bin
+endif
 
-seqtk:seqtk.c khash.h kseq.h
-		$(CC) $(CFLAGS) seqtk.c -o $@ -lz -lm
+# Sources
+SRCS    = seqtk.c compat.c
+OBJS    = $(SRCS:.c=.o)
 
-install:all
-		install seqtk $(BINDIR)
+all: $(EXE)
+
+$(EXE): $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+
+install: all
+	install $(EXE) $(BINDIR)
 
 clean:
-		rm -fr gmon.out *.o ext/*.o a.out seqtk trimadap *~ *.a *.dSYM session*
+	rm -f gmon.out *.o ext/*.o a.out seqtk seqtk.exe trimadap *~ *.a *.dSYM session*
