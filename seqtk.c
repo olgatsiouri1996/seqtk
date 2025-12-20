@@ -23,7 +23,6 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
 */
-
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -31,19 +30,62 @@
 #include <inttypes.h>
 #include <zlib.h>
 #include <string.h>
+#include <limits.h>
+#include <assert.h>
+#include <math.h>
+
 #ifdef _WIN32
     #include <io.h>       // for _isatty, _fileno
     #include <fcntl.h>
     #define isatty  _isatty
     #define fileno  _fileno
+
+    // -------- Windows-compatible drand48 / srand48 / lrand48 --------
+    #define drand48() ((double)rand()/RAND_MAX)
+    #define srand48(x) srand(x)
+    #define lrand48() rand()
+
+    // -------- Windows-compatible getopt --------
+    // Minimal public domain implementation
+    #include <string.h>
+    int opterr = 1, optind = 1, optopt, optreset;
+    char *optarg;
+
+    int getopt(int argc, char * const argv[], const char *optstring) {
+        static int charind = 1;
+        if (optind >= argc || argv[optind][0] != '-' || argv[optind][1] == '\0')
+            return -1;
+        if (strcmp(argv[optind], "--") == 0) { optind++; return -1; }
+        char c = argv[optind][charind];
+        const char *cp = strchr(optstring, c);
+        if (!cp) { if (opterr) fprintf(stderr, "Unknown option -%c\n", c); charind++; return '?'; }
+        if (*(cp+1) == ':') {
+            if (argv[optind][charind+1] != '\0') {
+                optarg = &argv[optind][charind+1];
+                optind++;
+            } else if (optind+1 < argc) {
+                optind++;
+                optarg = argv[optind++];
+            } else {
+                if (opterr) fprintf(stderr, "Option -%c requires an argument\n", c);
+                charind = 1;
+                optind++;
+                return '?';
+            }
+            charind = 1;
+        } else {
+            charind++;
+            if (argv[optind][charind] == '\0') { charind = 1; optind++; }
+        }
+        return c;
+    }
+
 #else
     #include <unistd.h>   // for getopt, isatty, fileno
 #endif
-#include <limits.h>
-#include <assert.h>
-#include <math.h>
 
 #include "kseq.h"
+
 KSEQ_INIT(gzFile, gzread)
 
 typedef struct {
@@ -1063,7 +1105,7 @@ int stk_split(int argc, char *argv[])
 	out = (FILE**)malloc(sizeof(FILE*) * n);
 	fn = (char*)malloc(strlen(prefix) + 10);
 	for (i = 0; i < n; ++i) {
-		sprintf(fn, "%s.%.5d.fa", prefix, i + 1);
+		sprintf(fn, "%s.%d.fasta", prefix, i + 1);
 		out[i] = fopen(fn, "w+");
 		if (out[i] == 0) {
 			fprintf(stderr, "ERROR: failed to create file %s\n", fn);
